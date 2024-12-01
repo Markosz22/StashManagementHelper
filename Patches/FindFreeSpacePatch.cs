@@ -1,9 +1,9 @@
-﻿using Aki.Reflection.Patching;
-using EFT.InventoryLogic;
-using HarmonyLib;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using EFT.InventoryLogic;
+using HarmonyLib;
+using SPT.Reflection.Patching;
 
 namespace StashManagementHelper;
 
@@ -32,12 +32,11 @@ public class FindFreeSpacePatch : ModulePatch
         List0 = ___list_0;
         HorizontalSpaceList = ___list_1;
         VerticalSpaceList = ___list_2;
+        var skipRows = Math.Max(0, Math.Min(Instance.GridHeight - Settings.SkipRows.Value, Settings.SkipRows.Value));
 
-        // Adjust row skipping based on settings and stash type
-        var skipRows = Math.Max(0, Math.Min(Instance.GridHeight.Value - Settings.SkipRows.Value, Settings.SkipRows.Value));
         if (!Settings.Sorting || Instance.ID != "hideout")
         {
-            skipRows = 0;
+            return true;
         }
 
         // Reject item if it cannot be accepted by the instance
@@ -92,12 +91,9 @@ public class FindFreeSpacePatch : ModulePatch
             : null;
 
         // Compare placements based on settings and return the most suitable one
-        return freeSpaceHorizontal != null && (freeSpaceVertical == null ||
-               (Settings.FlipSortDirection.Value
-                   ? freeSpaceHorizontal.y >= freeSpaceVertical.y
-                   : freeSpaceHorizontal.y <= freeSpaceVertical.y))
-            ? freeSpaceHorizontal
-            : freeSpaceVertical;
+        return freeSpaceHorizontal != null && (freeSpaceVertical == null || (Settings.FlipSortDirection.Value
+            ? freeSpaceHorizontal.y >= freeSpaceVertical.y : freeSpaceHorizontal.y <= freeSpaceVertical.y))
+            ? freeSpaceHorizontal : freeSpaceVertical;
     }
 
     /// <summary>
