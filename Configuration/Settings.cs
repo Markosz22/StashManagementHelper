@@ -1,7 +1,8 @@
-﻿using System;
+﻿using System.Collections.Generic;
 using BepInEx.Configuration;
+using StashManagementHelper.SortingStrategy;
 
-namespace StashManagementHelper;
+namespace StashManagementHelper.Configuration;
 
 public static class Settings
 {
@@ -10,6 +11,8 @@ public static class Settings
     private const string SortingStrategySection = "(2) Custom sorting strategy";
 
     public static bool Sorting = false;
+
+    private static Dictionary<string, SortOptions> _backup;
 
     public static ConfigEntry<SortEnum> SortingStrategy { get; set; }
     public static ConfigEntry<bool> FoldItems { get; set; }
@@ -23,6 +26,35 @@ public static class Settings
     public static ConfigEntry<SortOptions> ContainerSize { get; set; }
     public static ConfigEntry<SortOptions> CellSize { get; set; }
     public static ConfigEntry<SortOptions> ItemType { get; set; }
+    public static ConfigEntry<SortOptions> Weight { get; set; }
+    public static ConfigEntry<SortOptions> Value { get; set; }
+
+    public static void BackupSortOptions()
+    {
+        _backup = new Dictionary<string, SortOptions>
+        {
+            { "ContainerSize", ContainerSize.Value },
+            { "CellSize", CellSize.Value },
+            { "ItemType", ItemType.Value },
+            { "Weight", Weight.Value },
+            { "Value", Value.Value }
+        };
+    }
+
+    public static void RestoreSortOptions()
+    {
+        if (_backup == null)
+        {
+            return;
+        }
+
+        ContainerSize.Value = _backup["ContainerSize"];
+        CellSize.Value = _backup["CellSize"];
+        ItemType.Value = _backup["ItemType"];
+        Weight.Value = _backup["Weight"];
+        Value.Value = _backup["Value"];
+        _backup = null;
+    }
 
     public static void BindSettings(ConfigFile config)
     {
@@ -60,16 +92,26 @@ public static class Settings
 
         ItemType = config.Bind(SortingStrategySection, "Sort by item type", SortOptions.None,
             new ConfigDescription("Sort by item type", null, new ConfigurationManagerAttributes { Order = 48 }));
+
+        Weight = config.Bind(SortingStrategySection, "Sort by item weight", SortOptions.None,
+            new ConfigDescription("Sort by item weight", null, new ConfigurationManagerAttributes { Order = 47 }));
+
+        Value = config.Bind(SortingStrategySection, "Sort by item value", SortOptions.None,
+            new ConfigDescription("Sort by item value", null, new ConfigurationManagerAttributes { Order = 46 }));
     }
 
     public static SortOptions GetSortOption(string typeName)
     {
-        return typeName switch
+        var option = typeName switch
         {
             "ContainerSize" => ContainerSize.Value,
             "CellSize" => CellSize.Value,
             "ItemType" => ItemType.Value,
-            _ => throw new ArgumentException("Invalid sort type")
+            "Weight" => Weight.Value,
+            "Value" => Value.Value,
+            _ => throw new System.ArgumentException("Invalid sort type")
         };
+
+        return option;
     }
 }

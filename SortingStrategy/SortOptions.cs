@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace StashManagementHelper
+namespace StashManagementHelper.SortingStrategy
 {
     [Flags]
     public enum SortOptions

@@ -1,9 +1,9 @@
-﻿using SPT.Reflection.Patching;
+﻿using System.Reflection;
 using EFT.InventoryLogic;
 using HarmonyLib;
-using System.Reflection;
+using SPT.Reflection.Patching;
 
-namespace StashManagementHelper;
+namespace StashManagementHelper.Patches;
 
 public class TestPatch : ModulePatch
 {

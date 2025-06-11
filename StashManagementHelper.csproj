@@ -50,7 +50,7 @@
 		<Reference Include="Comfort">
 			<Private>False</Private>
 			<HintPath>$(ManagedAssembliesPath)\Comfort.dll</HintPath>
-		</Reference>
+		</Reference>	
 		<Reference Include="Newtonsoft.Json">
 			<HintPath>$(ManagedAssembliesPath)\Newtonsoft.Json.dll</HintPath>
 			<Private>False</Private>
@@ -61,6 +61,22 @@
 		</Reference>
 		<Reference Include="UnityEngine.CoreModule">
 			<HintPath>$(ManagedAssembliesPath)\UnityEngine.CoreModule.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Sirenix.Serialization">
+			<Private>False</Private>
+			<HintPath>$(ManagedAssembliesPath)\Sirenix.Serialization.dll</HintPath>
+		</Reference>		
+		<Reference Include="UnityEngine.UI">
+			<HintPath>$(ManagedAssembliesPath)\UnityEngine.UI.dll</HintPath>
+			<Private>False</Private>
+		</Reference>	
+		<Reference Include="UnityEngine.UIModule">
+			<HintPath>$(ManagedAssembliesPath)\UnityEngine.UIModule.dll</HintPath>
+			<Private>False</Private>
+		</Reference>		
+		<Reference Include="UnityEngine.TextRenderingModule">
+			<HintPath>$(ManagedAssembliesPath)\UnityEngine.TextRenderingModule.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 	</ItemGroup>

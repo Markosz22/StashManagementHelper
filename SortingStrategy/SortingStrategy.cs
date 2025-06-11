@@ -5,17 +5,18 @@ using System.Linq;
 using System.Reflection;
 using EFT.InventoryLogic;
 using Newtonsoft.Json;
+using StashManagementHelper.Configuration;
+using StashManagementHelper.Helpers;
 
-namespace StashManagementHelper;
+namespace StashManagementHelper.SortingStrategy;
 
 public static class SortingStrategy
 {
     private static bool inSynch = false;
     private static DateTime lastConfigFileWriteTime = DateTime.MinValue;
-
     private static readonly string configPath;
 
-    private static List<string> SortOrder { get; set; } = ["ContainerSize", "CellSize", "ItemType"];
+    private static List<string> SortOrder { get; set; } = new List<string> { "ContainerSize", "CellSize", "ItemType", "Weight", "Value" };
 
     private static List<ItemTypes.ItemType> ItemTypeOrder { get; set; } =
     [
@@ -57,9 +58,9 @@ public static class SortingStrategy
     public static List<Item> Sort(this IEnumerable<Item> items)
         => Settings.SortingStrategy.Value switch
         {
-            SortEnum.Default => items.ToList(),
+            SortEnum.Default => [.. items],
             SortEnum.Custom => items.SortByCustomOrder(),
-            _ => items.ToList()
+            _ => [.. items]
         };
 
     private static List<Item> SortByCustomOrder(this IEnumerable<Item> items)
@@ -84,7 +85,7 @@ public static class SortingStrategy
                 : orderedItems.OrderBy(keySelector);
         }
 
-        return orderedItems.ToList();
+        return [.. orderedItems];
     }
 
     private static Func<Item, object> GetSortFunction(string sortType)
@@ -94,7 +95,9 @@ public static class SortingStrategy
             "ContainerSize" => GetContainerSize,
             "ItemType" => GetItemType,
             "CellSize" => item => item.CalculateCellSize().Length,
-            _ => throw new ArgumentException("Invalid sort type")
+            "Weight" => item => item.TotalWeight,
+            "Value" => item => GetItemValue(item),
+            _ => throw new ArgumentException($"Invalid sort type '{sortType}'")
         };
     }
 
@@ -117,6 +120,38 @@ public static class SortingStrategy
         return item.Attributes.FirstOrDefault(y => y.Id.Equals(EItemAttributeId.ContainerSize))?.Base.Invoke() ?? -1;
     }
 
+    /// <summary>
+    /// Retrieves the highest sell-to-trader value (in roubles) for this item.
+    /// </summary>
+    private static double GetItemValue(Item item)
+    {
+        var best = 0d;
+
+        // Ensure supply data for all traders
+        foreach (var trader in TraderExtensions.Session.Traders.Where(t => !t.Settings.AvailableInRaid))
+        {
+            trader.UpdateSupplyData();
+        }
+
+        // Calculate best price in roubles
+        foreach (var trader in TraderExtensions.Session.Traders.Where(t => !t.Settings.AvailableInRaid))
+        {
+            var price = trader.GetUserItemPrice(item);
+
+            if (!price.HasValue) continue;
+            var pd = price.Value;
+            var supply = trader.GetSupplyData();
+
+            if (supply == null || !supply.CurrencyCourses.TryGetValue(pd.CurrencyId.Value, out var course))
+                course = 1.0;
+
+            var val = pd.Amount * course * item.StackObjectsCount;
+            if (val > best)
+                best = val;
+        }
+        return best;
+    }
+
     private static void SyncItemTypeOrder()
     {
         if (inSynch)
@@ -134,7 +169,7 @@ public static class SortingStrategy
 
             foreach (var missingType in missingTypes)
             {
-                int enumValue = (int)missingType;
+                var enumValue = (int)missingType;
 
                 bool inserted = false;
                 for (int i = 0; i < ItemTypeOrder.Count - 1; i++)

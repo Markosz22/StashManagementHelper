@@ -4,8 +4,11 @@ using System.Reflection;
 using EFT.InventoryLogic;
 using HarmonyLib;
 using SPT.Reflection.Patching;
+using StashManagementHelper.Configuration;
+using StashManagementHelper.Helpers;
+using StashManagementHelper.SortingStrategy;
 
-namespace StashManagementHelper;
+namespace StashManagementHelper.Patches;
 
 public class ItemListSortPatch : ModulePatch
 {

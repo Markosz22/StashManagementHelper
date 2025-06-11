@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel;
 
-namespace StashManagementHelper;
+namespace StashManagementHelper.SortingStrategy;
 
 public enum SortEnum
 {
