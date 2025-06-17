@@ -203,6 +203,7 @@ namespace StashManagementHelper.Patches
                 _sortBtn.onClick.Invoke();
                 DestroyCustomMenu();
             });
+            CreateMenuButton("Sort by FleaValue", () => { SwapFlags("FleaValue"); DestroyCustomMenu(); });
             CreateMenuButton("Sort by Value", () => { SwapFlags("Value"); DestroyCustomMenu(); });
             CreateMenuButton("Sort by Weight", () => { SwapFlags("Weight"); DestroyCustomMenu(); });
 
@@ -388,7 +389,8 @@ namespace StashManagementHelper.Patches
             Settings.CellSize.Value = SortOptions.None;
             Settings.ItemType.Value = SortOptions.None;
             Settings.Weight.Value = (mode == "Weight") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;
-            Settings.Value.Value = (mode == "Value") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;
+            Settings.TraderValue.Value = (mode == "Value") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;
+            Settings.MarketValue.Value = (mode == "FleaValue") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;
 
             // Invoke the existing sort button
             _sortBtn.onClick.Invoke();
