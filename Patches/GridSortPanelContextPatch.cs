@@ -144,7 +144,7 @@ namespace StashManagementHelper.Patches
             _menuCanvasObj = new GameObject(MenuCanvasName);
             var menuCanvas = _menuCanvasObj.AddComponent<Canvas>();
             menuCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            menuCanvas.sortingOrder = 32767; // Set high sorting order for overlay
+            menuCanvas.sortingOrder = 5000; // Set high sorting order for overlay
             _menuCanvasObj.AddComponent<GraphicRaycaster>();
 
             var canvas = menuCanvas;
@@ -197,15 +197,9 @@ namespace StashManagementHelper.Patches
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            CreateMenuButton("Default Sort", () =>
-            {
-                Settings.RestoreSortOptions();
-                _sortBtn.onClick.Invoke();
-                DestroyCustomMenu();
-            });
-            CreateMenuButton("Sort by FleaValue", () => { SwapFlags("FleaValue"); DestroyCustomMenu(); });
-            CreateMenuButton("Sort by Value", () => { SwapFlags("Value"); DestroyCustomMenu(); });
-            CreateMenuButton("Sort by Weight", () => { SwapFlags("Weight"); DestroyCustomMenu(); });
+            CreateMenuButton("Sort by Market Value", () => { SwapFlags("FleaValue"); DestroyCustomMenu(); });
+            CreateMenuButton("Sort by Trader Value", () => { SwapFlags("Value"); DestroyCustomMenu(); });
+            CreateMenuButton("Sort by Item Weight", () => { SwapFlags("Weight"); DestroyCustomMenu(); });
 
             _customMenu.SetActive(true);
         }
@@ -238,7 +232,7 @@ namespace StashManagementHelper.Patches
 
             // Ensure the button has a LayoutElement to control its size
             var layoutElement = btnObj.GetComponent<LayoutElement>() ?? btnObj.AddComponent<LayoutElement>();
-            layoutElement.preferredWidth = 160;
+            layoutElement.preferredWidth = 200;
             layoutElement.preferredHeight = 30;
 
             // Clear existing text and image children from the cloned template to ensure a clean slate for our custom layout

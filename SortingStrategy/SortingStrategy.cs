@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using EFT.InventoryLogic;
 using Newtonsoft.Json;
 using StashManagementHelper.Configuration;
@@ -55,15 +56,15 @@ public static class SortingStrategy
         configPath = Path.Combine(Path.GetDirectoryName(dllPath) ?? string.Empty, "customSortConfig.json");
     }
 
-    public static List<Item> Sort(this IEnumerable<Item> items)
+    public static async Task<List<Item>> Sort(this IEnumerable<Item> items)
         => Settings.SortingStrategy.Value switch
         {
             SortEnum.Default => [.. items],
-            SortEnum.Custom => items.SortByCustomOrder(),
+            SortEnum.Custom => await items.SortByCustomOrder(),
             _ => [.. items]
         };
 
-    private static List<Item> SortByCustomOrder(this IEnumerable<Item> items)
+    private static async Task<List<Item>> SortByCustomOrder(this IEnumerable<Item> items)
     {
         LoadSortOrder();
 

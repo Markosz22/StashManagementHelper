@@ -28,7 +28,7 @@ public class ItemListSortPatch : ModulePatch
 
         if (shouldSort)
         {
-            __result = __result.Sort();
+            __result = __result.Sort().Result;
         }
     }
 }
