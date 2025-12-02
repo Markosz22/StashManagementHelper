@@ -4,7 +4,7 @@
 		<TargetFramework>net472</TargetFramework>
 		<AssemblyName>StashManagementHelper</AssemblyName>
 		<Description>Stash Management Helper</Description>
-		<Version>0.1.8</Version>
+		<Version>0.2.0</Version>
 		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
 
@@ -19,7 +19,7 @@
 	</ItemGroup>
 
 	<PropertyGroup>
-		<EFTPath>E:\SPT\SPT 3.11</EFTPath>
+		<EFTPath>E:\SPT\SPT 4.0</EFTPath>
 		<ManagedAssembliesPath>$(EFTPath)\EscapeFromTarkov_Data\Managed</ManagedAssembliesPath>
 		<BepInExPath>$(EFTPath)\BepInEx\core</BepInExPath>
 		<PluginsPath>$(EFTPath)\BepInEx\plugins</PluginsPath>

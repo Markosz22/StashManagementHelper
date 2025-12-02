@@ -1,13 +1,12 @@
-﻿using System;
+﻿using EFT.InventoryLogic;
+using Newtonsoft.Json;
+using StashManagementHelper.Configuration;
+using StashManagementHelper.Helpers;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
-using EFT.InventoryLogic;
-using Newtonsoft.Json;
-using StashManagementHelper.Configuration;
-using StashManagementHelper.Helpers;
 
 namespace StashManagementHelper.SortingStrategy;
 
@@ -153,7 +152,7 @@ public static class SortingStrategy
             if (supply == null || !supply.CurrencyCourses.TryGetValue(pd.CurrencyId.Value, out var course))
                 course = 1.0;
 
-            var val = pd.Amount * course * item.StackObjectsCount;
+            var val = pd.Amount * course;
             if (val > best)
                 best = val;
         }

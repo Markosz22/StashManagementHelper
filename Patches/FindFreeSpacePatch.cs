@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Runtime.CompilerServices;
-using EFT.InventoryLogic;
+﻿using EFT.InventoryLogic;
 using HarmonyLib;
 using SPT.Reflection.Patching;
 using StashManagementHelper.Configuration;
 using StashManagementHelper.Helpers;
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace StashManagementHelper.Patches;
 
@@ -26,16 +26,16 @@ public class FindFreeSpacePatch : ModulePatch
     /// <param name="__instance">Instance of <see cref="StashGridClass"/></param>
     /// <param name="__result">The <see cref="LocationInGrid"/></param>
     /// <param name="item"><see cref="Item"/> to sort</param>
-    /// <param name="___list_0">Indicates of which square in grid is occupied by index</param>
-    /// <param name="___list_1">Number of free space horizontally from current square by index</param>
-    /// <param name="___list_2">Number of free space vertically from current square by index</param>
+    /// <param name="___List_0">Indicates of which square in grid is occupied by index</param>
+    /// <param name="___List_1">Number of free space horizontally from current square by index</param>
+    /// <param name="___List_2">Number of free space vertically from current square by index</param>
     [PatchPrefix]
-    private static bool PatchPrefix(StashGridClass __instance, ref LocationInGrid __result, Item item, List<bool> ___list_0, List<int> ___list_1, List<int> ___list_2)
+    private static bool PatchPrefix(StashGridClass __instance, ref LocationInGrid __result, Item item, List<bool> ___List_0, List<int> ___List_1, List<int> ___List_2)
     {
         GridInstance = __instance;
-        OccupiedCells = ___list_0;
-        HorizontalSpaces = ___list_1;
-        VerticalSpaces = ___list_2;
+        OccupiedCells = ___List_0;
+        HorizontalSpaces = ___List_1;
+        VerticalSpaces = ___List_2;
 
         var sr = Settings.SkipRows.Value;
         if (sr < 0) sr = 0;

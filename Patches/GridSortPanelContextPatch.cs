@@ -1,10 +1,10 @@
-using System;
-using System.Linq;
-using System.Reflection;
 using HarmonyLib;
 using SPT.Reflection.Patching;
 using StashManagementHelper.Configuration;
 using StashManagementHelper.SortingStrategy;
+using System;
+using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -197,7 +197,7 @@ namespace StashManagementHelper.Patches
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            CreateMenuButton("Sort by Market Value", () => { SwapFlags("FleaValue"); DestroyCustomMenu(); });
+            //CreateMenuButton("Sort by Market Value", () => { SwapFlags("FleaValue"); DestroyCustomMenu(); }); //TODO
             CreateMenuButton("Sort by Trader Value", () => { SwapFlags("Value"); DestroyCustomMenu(); });
             CreateMenuButton("Sort by Item Weight", () => { SwapFlags("Weight"); DestroyCustomMenu(); });
 

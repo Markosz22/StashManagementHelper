@@ -1,6 +1,6 @@
-﻿using System;
+﻿using EFT.InventoryLogic;
+using System;
 using System.Collections.Generic;
-using EFT.InventoryLogic;
 
 namespace StashManagementHelper.SortingStrategy;
 
