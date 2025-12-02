@@ -1,4 +1,4 @@
-﻿namespace StashManagementHelper;
+﻿namespace StashManagementHelper.Configuration;
 
 /// <summary>
 /// Class that specifies how a setting should be displayed inside the ConfigurationManager settings window.

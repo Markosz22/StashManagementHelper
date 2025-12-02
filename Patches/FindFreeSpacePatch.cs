@@ -1,20 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Reflection;
-using EFT.InventoryLogic;
+﻿using EFT.InventoryLogic;
 using HarmonyLib;
 using SPT.Reflection.Patching;
+using StashManagementHelper.Configuration;
+using StashManagementHelper.Helpers;
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 
-namespace StashManagementHelper;
+namespace StashManagementHelper.Patches;
 
 public class FindFreeSpacePatch : ModulePatch
 {
     protected override MethodBase GetTargetMethod() => AccessTools.Method(typeof(StashGridClass), "FindFreeSpace");
 
-    public static StashGridClass Instance { get; set; }
-    public static List<bool> List0 { get; set; }
-    public static List<int> HorizontalSpaceList { get; set; }
-    public static List<int> VerticalSpaceList { get; set; }
+    public static StashGridClass GridInstance { get; private set; }
+    public static List<bool> OccupiedCells { get; private set; }
+    public static List<int> HorizontalSpaces { get; private set; }
+    public static List<int> VerticalSpaces { get; private set; }
+    public static int CurrentSkipRows { get; private set; }
 
     /// <summary>
     /// Path for FindFreeSpace method of <see cref="StashGridClass"/>
@@ -22,19 +26,25 @@ public class FindFreeSpacePatch : ModulePatch
     /// <param name="__instance">Instance of <see cref="StashGridClass"/></param>
     /// <param name="__result">The <see cref="LocationInGrid"/></param>
     /// <param name="item"><see cref="Item"/> to sort</param>
-    /// <param name="___list_0">Indicates of which square in grid is occupied by index</param>
-    /// <param name="___list_1">Number of free space horizontally from current square by index</param>
-    /// <param name="___list_2">Number of free space vertically from current square by index</param>
+    /// <param name="___List_0">Indicates of which square in grid is occupied by index</param>
+    /// <param name="___List_1">Number of free space horizontally from current square by index</param>
+    /// <param name="___List_2">Number of free space vertically from current square by index</param>
     [PatchPrefix]
-    private static bool PatchPrefix(StashGridClass __instance, ref LocationInGrid __result, Item item, List<bool> ___list_0, List<int> ___list_1, List<int> ___list_2)
+    private static bool PatchPrefix(StashGridClass __instance, ref LocationInGrid __result, Item item, List<bool> ___List_0, List<int> ___List_1, List<int> ___List_2)
     {
-        Instance = __instance;
-        List0 = ___list_0;
-        HorizontalSpaceList = ___list_1;
-        VerticalSpaceList = ___list_2;
+        GridInstance = __instance;
+        OccupiedCells = ___List_0;
+        HorizontalSpaces = ___List_1;
+        VerticalSpaces = ___List_2;
 
-        var skipRows = Math.Max(0, Math.Min(Instance.GridHeight - Settings.SkipRows.Value, Settings.SkipRows.Value));
-        if (!Settings.Sorting || Instance.ID != "hideout")
+        var sr = Settings.SkipRows.Value;
+        if (sr < 0) sr = 0;
+        var maxSkippable = GridInstance.GridHeight - sr;
+        if (sr > maxSkippable) sr = maxSkippable;
+        var skipRows = sr;
+        CurrentSkipRows = skipRows;
+
+        if (!Settings.Sorting || !string.Equals(GridInstance.ID, "hideout", StringComparison.Ordinal))
         {
             return true;
         }
@@ -82,33 +92,39 @@ public class FindFreeSpacePatch : ModulePatch
     /// <summary>
     /// Determines the best placement for an item based on its size and the number of rows to skip.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static LocationInGrid DetermineBestPlacement(XYCellSizeStruct cellSize, int skipRows)
     {
-        // Evaluate both horizontal and vertical placements and choose the best one
-        var freeSpaceHorizontal = FindOptimalItemPlacement(cellSize.X, cellSize.Y, ItemRotation.Horizontal, skipRows);
-        var freeSpaceVertical = Settings.RotateItems.Value || freeSpaceHorizontal == null
-            ? FindOptimalItemPlacement(cellSize.Y, cellSize.X, ItemRotation.Vertical, skipRows)
-            : null;
-
-        // Compare placements based on settings and return the most suitable one
-        return freeSpaceHorizontal != null && (freeSpaceVertical == null || (Settings.FlipSortDirection.Value
-            ? freeSpaceHorizontal.y >= freeSpaceVertical.y : freeSpaceHorizontal.y <= freeSpaceVertical.y))
-            ? freeSpaceHorizontal : freeSpaceVertical;
+        // Evaluate both horizontal and vertical placements
+        var freeHoriz = FindOptimalItemPlacement(cellSize.X, cellSize.Y, ItemRotation.Horizontal, skipRows);
+        LocationInGrid freeVert = null;
+        if (Settings.RotateItems.Value || freeHoriz == null)
+        {
+            freeVert = FindOptimalItemPlacement(cellSize.Y, cellSize.X, ItemRotation.Vertical, skipRows);
+        }
+        // If one orientation has no valid placement, use the other
+        if (freeHoriz == null)
+            return freeVert;
+        if (freeVert == null)
+            return freeHoriz;
+        // Choose the placement with the smallest Y coordinate (topmost)
+        return freeHoriz.y <= freeVert.y ? freeHoriz : freeVert;
     }
 
     /// <summary>
     /// Finds the optimal item placement considering item dimensions, rotation, and grid constraints.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     protected static LocationInGrid FindOptimalItemPlacement(int itemWidth, int itemHeight, ItemRotation rotation, int skipRows)
     {
         // Determine the primary and secondary dimensions based on the ability to stretch horizontally
-        var useInvertedDimensions = Instance.CanStretchHorizontally && Instance.GridHeight >= Instance.GridWidth + itemWidth;
+        var useInvertedDimensions = GridInstance.CanStretchHorizontally && GridInstance.GridHeight >= GridInstance.GridWidth + itemWidth;
         var primaryWidth = useInvertedDimensions ? itemWidth : itemHeight;
         var primaryHeight = useInvertedDimensions ? itemHeight : itemWidth;
-        var primaryGridWidth = useInvertedDimensions ? Instance.GridWidth : Instance.GridHeight;
-        var primaryGridHeight = useInvertedDimensions ? Instance.GridHeight : Instance.GridWidth;
-        var primaryList = useInvertedDimensions ? HorizontalSpaceList : VerticalSpaceList;
-        var secondaryList = useInvertedDimensions ? VerticalSpaceList : HorizontalSpaceList;
+        var primaryGridWidth = useInvertedDimensions ? GridInstance.GridWidth : GridInstance.GridHeight;
+        var primaryGridHeight = useInvertedDimensions ? GridInstance.GridHeight : GridInstance.GridWidth;
+        var primaryList = useInvertedDimensions ? HorizontalSpaces : VerticalSpaces;
+        var secondaryList = useInvertedDimensions ? VerticalSpaces : HorizontalSpaces;
 
         // Attempt to find a suitable location with the current orientation
         var locationInGrid = FindSuitableLocation(primaryWidth, primaryHeight, rotation, primaryGridWidth, primaryGridHeight, primaryList, secondaryList, skipRows, useInvertedDimensions);
@@ -116,11 +132,11 @@ public class FindFreeSpacePatch : ModulePatch
             return locationInGrid;
 
         // Check if stretching is possible and return a new location accordingly
-        if (Instance.CanStretchHorizontally && Instance.GridHeight >= Instance.GridWidth + itemWidth)
-            return new LocationInGrid(Instance.GridWidth, 0, rotation);
+        if (GridInstance.CanStretchHorizontally && GridInstance.GridHeight >= GridInstance.GridWidth + itemWidth)
+            return new LocationInGrid(GridInstance.GridWidth, 0, rotation);
 
-        if (Instance.CanStretchVertically && (Instance.CanStretchHorizontally || itemWidth <= Instance.GridWidth))
-            return new LocationInGrid(0, Instance.GridHeight, rotation);
+        if (GridInstance.CanStretchVertically && (GridInstance.CanStretchHorizontally || itemWidth <= GridInstance.GridWidth))
+            return new LocationInGrid(0, GridInstance.GridHeight, rotation);
 
         return null;
     }
@@ -136,19 +152,20 @@ public class FindFreeSpacePatch : ModulePatch
         int skipRows,
         bool invertDimensions = false)
     {
-        // Determine starting and ending indices for the main dimension based on sorting direction
-        var mainStartIndex = Settings.FlipSortDirection.Value ? gridMainDimensionSize - itemMainDimensionSize - skipRows : skipRows;
-        var mainEndIndex = Settings.FlipSortDirection.Value ? 0 : gridMainDimensionSize - itemMainDimensionSize;
-        var step = Settings.FlipSortDirection.Value ? -1 : 1;
+        // Determine starting and ending indices based on sorting direction
+        var flipDir = Settings.FlipSortDirection.Value;
+        var mainStartIndex = flipDir ? gridMainDimensionSize - itemMainDimensionSize - skipRows : skipRows;
+        var mainEndIndex = flipDir ? 0 : gridMainDimensionSize - itemMainDimensionSize;
+        var step = flipDir ? -1 : 1;
 
         // Iterate over possible positions in the grid to find a suitable location for the item
-        for (var mainIndex = mainStartIndex; Settings.FlipSortDirection.Value ? mainIndex >= mainEndIndex : mainIndex <= mainEndIndex; mainIndex += step)
+        for (var mainIndex = mainStartIndex; flipDir ? mainIndex >= mainEndIndex : mainIndex <= mainEndIndex; mainIndex += step)
         {
-            var secondaryStart = Settings.FlipSortDirection.Value ? gridSecondaryDimensionSize - itemSecondaryDimensionSize : 0;
-            var secondaryEnd = Settings.FlipSortDirection.Value ? 0 : gridSecondaryDimensionSize - itemSecondaryDimensionSize;
-            var secondaryStep = Settings.FlipSortDirection.Value ? -1 : 1;
+            var secondaryStart = flipDir ? gridSecondaryDimensionSize - itemSecondaryDimensionSize : 0;
+            var secondaryEnd = flipDir ? 0 : gridSecondaryDimensionSize - itemSecondaryDimensionSize;
+            var secondaryStep = flipDir ? -1 : 1;
 
-            for (var secondaryIndex = secondaryStart; Settings.FlipSortDirection.Value ? secondaryIndex >= secondaryEnd : secondaryIndex <= secondaryEnd; secondaryIndex += secondaryStep)
+            for (var secondaryIndex = secondaryStart; flipDir ? secondaryIndex >= secondaryEnd : secondaryIndex <= secondaryEnd; secondaryIndex += secondaryStep)
             {
                 // Check if the current position has enough space for the item
                 if (IsSpaceAvailable(mainIndex, secondaryIndex, itemMainDimensionSize, itemSecondaryDimensionSize, gridMainDimensionSize, gridSecondaryDimensionSize, mainDimensionSpaces, secondaryDimensionSpaces, invertDimensions))
@@ -164,6 +181,7 @@ public class FindFreeSpacePatch : ModulePatch
     /// <summary>
     /// Checks if the specified space in the grid is free for the item placement.
     /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsSpaceAvailable(
         int mainIndex,
         int secondaryIndex,
@@ -199,9 +217,8 @@ public class FindFreeSpacePatch : ModulePatch
     /// </summary>
     protected static void UpdateGridSpaces()
     {
-        var skipRows = Math.Max(0, Math.Min(Instance.GridHeight - Settings.SkipRows.Value, Settings.SkipRows.Value));
-
-        if (!Settings.Sorting || skipRows == 0 || Instance.ID != "hideout")
+        var skipRows = CurrentSkipRows;
+        if (!Settings.Sorting || skipRows == 0)
         {
             return;
         }
@@ -224,33 +241,41 @@ public class FindFreeSpacePatch : ModulePatch
     /// Calculates the available space in either horizontal or vertical direction.
     /// </summary>
     /// <param name="isHorizontal">Flag to calculate horizontally or vertically</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void CalculateAndUpdateSpace(bool isHorizontal)
     {
-        var list = isHorizontal ? HorizontalSpaceList : VerticalSpaceList;
-        var gridHeight = Instance.GridHeight;
-        var gridWidth = Instance.GridWidth;
-        var skipRows = Math.Max(0, Math.Min(gridHeight - Settings.SkipRows.Value, Settings.SkipRows.Value));
+        var grid = GridInstance;
+        var height = grid.GridHeight;
+        var width = grid.GridWidth;
+        var skipRows = CurrentSkipRows;
+        var outerMax = (isHorizontal ? height : width) - skipRows;
+        var spaces = isHorizontal ? HorizontalSpaces : VerticalSpaces;
+        var occupied = OccupiedCells;
+        var canStretch = isHorizontal ? grid.CanStretchHorizontally : grid.CanStretchVertically;
 
-        var outerLimit = isHorizontal ? gridHeight : gridWidth;
-        var innerLimit = isHorizontal ? gridWidth : gridHeight;
-
-        for (var outer = 0; outer < outerLimit - skipRows; ++outer)
+        for (var outer = 0; outer < outerMax; outer++)
         {
-            var num = (isHorizontal ? Instance.CanStretchHorizontally : Instance.CanStretchVertically) ? -1 : 0;
-            for (var inner = innerLimit - 1; inner >= 0; --inner)
+            var count = canStretch ? -1 : 0;
+            var innerMax = isHorizontal ? width : height;
+            for (var inner = innerMax - 1; inner >= 0; inner--)
             {
-                var index = isHorizontal ? outer * gridWidth + inner : inner * gridWidth + outer;
+                var index = isHorizontal ? (outer * width) + inner : inner * width + outer;
                 if (outer < skipRows)
                 {
-                    list[index] = 0;
+                    spaces[index] = 0;
                 }
                 else
                 {
-                    if (List0[index])
-                        num = 0;
-                    else if (num != -1)
-                        ++num;
-                    list[index] = num;
+                    if (occupied[index])
+                    {
+                        count = 0;
+                    }
+                    else if (count != -1)
+                    {
+                        count++;
+                    }
+
+                    spaces[index] = count;
                 }
             }
         }

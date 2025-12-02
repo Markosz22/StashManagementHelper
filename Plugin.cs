@@ -1,4 +1,7 @@
 ﻿using BepInEx;
+using StashManagementHelper.Configuration;
+using StashManagementHelper.Helpers;
+using StashManagementHelper.Patches;
 
 namespace StashManagementHelper;
 
@@ -14,7 +17,7 @@ public class Plugin : BaseUnityPlugin
         new FindFreeSpacePatch().Enable();
         new ItemListSortPatch().Enable();
         new SortPatch().Enable();
-        //new TestPatch().Enable();
+        new GridSortPanelContextPatch().Enable();
 
         Logger.LogInfo($"Plugin {PluginInfo.PLUGIN_GUID} is loaded!");
     }

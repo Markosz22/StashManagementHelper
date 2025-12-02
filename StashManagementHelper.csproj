@@ -4,7 +4,7 @@
 		<TargetFramework>net472</TargetFramework>
 		<AssemblyName>StashManagementHelper</AssemblyName>
 		<Description>Stash Management Helper</Description>
-		<Version>0.1.8</Version>
+		<Version>0.2.0</Version>
 		<LangVersion>latest</LangVersion>
 	</PropertyGroup>
 
@@ -19,7 +19,7 @@
 	</ItemGroup>
 
 	<PropertyGroup>
-		<EFTPath>E:\SPT\SPT 3.11</EFTPath>
+		<EFTPath>E:\SPT\SPT 4.0</EFTPath>
 		<ManagedAssembliesPath>$(EFTPath)\EscapeFromTarkov_Data\Managed</ManagedAssembliesPath>
 		<BepInExPath>$(EFTPath)\BepInEx\core</BepInExPath>
 		<PluginsPath>$(EFTPath)\BepInEx\plugins</PluginsPath>
@@ -50,7 +50,7 @@
 		<Reference Include="Comfort">
 			<Private>False</Private>
 			<HintPath>$(ManagedAssembliesPath)\Comfort.dll</HintPath>
-		</Reference>
+		</Reference>	
 		<Reference Include="Newtonsoft.Json">
 			<HintPath>$(ManagedAssembliesPath)\Newtonsoft.Json.dll</HintPath>
 			<Private>False</Private>
@@ -61,6 +61,22 @@
 		</Reference>
 		<Reference Include="UnityEngine.CoreModule">
 			<HintPath>$(ManagedAssembliesPath)\UnityEngine.CoreModule.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Sirenix.Serialization">
+			<Private>False</Private>
+			<HintPath>$(ManagedAssembliesPath)\Sirenix.Serialization.dll</HintPath>
+		</Reference>		
+		<Reference Include="UnityEngine.UI">
+			<HintPath>$(ManagedAssembliesPath)\UnityEngine.UI.dll</HintPath>
+			<Private>False</Private>
+		</Reference>	
+		<Reference Include="UnityEngine.UIModule">
+			<HintPath>$(ManagedAssembliesPath)\UnityEngine.UIModule.dll</HintPath>
+			<Private>False</Private>
+		</Reference>		
+		<Reference Include="UnityEngine.TextRenderingModule">
+			<HintPath>$(ManagedAssembliesPath)\UnityEngine.TextRenderingModule.dll</HintPath>
 			<Private>False</Private>
 		</Reference>
 	</ItemGroup>

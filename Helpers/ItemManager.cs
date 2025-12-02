@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using BepInEx.Logging;
 using EFT.InventoryLogic;
 
-namespace StashManagementHelper;
+namespace StashManagementHelper.Helpers;
 
 public static class ItemManager
 {
@@ -50,13 +50,15 @@ public static class ItemManager
     /// <param name="items">The table of items.</param>
     public static async Task MergeItems(CompoundItem items, InventoryController inventoryController, bool simulate)
     {
+        if (items == null) throw new ArgumentNullException(nameof(items));
+        if (inventoryController == null) throw new ArgumentNullException(nameof(inventoryController));
+
         try
         {
             foreach (var grid in items.Grids)
             {
                 var stackableGroups = grid.Items
-                    .Where(i => i.StackObjectsCount < i.StackMaxSize)
-                    .Where(i => i.Owner != null)
+                    .Where(i => i.Owner != null && i.StackObjectsCount < i.StackMaxSize)
                     .GroupBy(i => new { i.TemplateId, i.SpawnedInSession })
                     .Where(g => g.Count() > 1)
                     .ToList();
@@ -68,8 +70,9 @@ public static class ItemManager
                     {
                         mergesMade = false;
 
-                        var stacks = group.OrderByDescending(i => i.StackObjectsCount)
+                        var stacks = group
                             .Where(i => i.StackObjectsCount > 0)
+                            .OrderByDescending(i => i.StackObjectsCount)
                             .ToList();
 
                         if (stacks.Count <= 1) break;
@@ -102,17 +105,26 @@ public static class ItemManager
     /// <returns>True if the item is in the player stash, false otherwise</returns>
     public static bool IsItemInStash(Item item)
     {
-        if (item == null) return false;
-        if (item is StashItemClass) return true;
-        if (item.TemplateId == StashTemplateId) return true;
-        if (item.Owner?.ID == StashItemId) return true;
+        if (item is null)
+            return false;
+
+        if (item is StashItemClass
+            || string.Equals(item.TemplateId, StashTemplateId, StringComparison.Ordinal)
+            || string.Equals(item.Owner?.ID, StashItemId, StringComparison.Ordinal))
+        {
+            return true;
+        }
 
         try
         {
-            foreach (var parentItem in item.GetAllParentItems())
+            foreach (var parent in item.GetAllParentItems())
             {
-                if (parentItem.TemplateId == StashTemplateId || parentItem is StashItemClass) return true;
-                if (parentItem.Owner?.ID == StashItemId) return true;
+                if (parent is StashItemClass
+                    || string.Equals(parent.TemplateId, StashTemplateId, StringComparison.Ordinal)
+                    || string.Equals(parent.Owner?.ID, StashItemId, StringComparison.Ordinal))
+                {
+                    return true;
+                }
             }
         }
         catch (Exception ex)
@@ -127,9 +139,5 @@ public static class ItemManager
     /// Checks if item is in trader window
     /// </summary>
     /// <param name="item"></param>
-    public static bool IsItemInTrader(Item item)
-    {
-        if (item?.Owner == null) return false;
-        return item.Owner.OwnerType == EOwnerType.Trader;
-    }
+    public static bool IsItemInTrader(Item item) => item?.Owner?.OwnerType == EOwnerType.Trader;
 }
