@@ -2,6 +2,8 @@
 
 A Single Player Tarkov (SPT) plugin that enhances stash management with configurable sorting capabilities.
 
+**Source Code:** [https://github.com/Markosz22/StashManagementHelper](https://github.com/Markosz22/StashManagementHelper)
+
 ## Features
 
 ### Customizable Stash Sorting
