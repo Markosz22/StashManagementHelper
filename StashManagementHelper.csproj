@@ -12,6 +12,8 @@
 		<PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
 		<PackageReference Include="BepInEx.Core" Version="5.*" />
 		<PackageReference Include="BepInEx.PluginInfoProps" Version="1.*" />
+		<BepInExPluginGuid>com.markosz.stashmanagementhelper</BepInExPluginGuid>
+		<BepInExPluginName>Markosz-StashManagementHelper</BepInExPluginName>
 	</ItemGroup>
 
 	<ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
