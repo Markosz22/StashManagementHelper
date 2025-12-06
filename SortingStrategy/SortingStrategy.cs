@@ -16,7 +16,8 @@ public static class SortingStrategy
     private static DateTime lastConfigFileWriteTime = DateTime.MinValue;
     private static readonly string configPath;
 
-    private static List<string> SortOrder { get; set; } = new List<string> { "ContainerSize", "CellSize", "ItemType", "Weight", "Value", "FleaValue" };
+    // TODO: "FleaValue" removed - not ready for release
+    private static List<string> SortOrder { get; set; } = new List<string> { "ContainerSize", "CellSize", "ItemType", "Weight", "Value" };
 
     private static List<ItemTypes.ItemType> ItemTypeOrder { get; set; } =
     [
@@ -67,10 +68,11 @@ public static class SortingStrategy
     {
         LoadSortOrder();
 
-        if (SortOrder.Contains("FleaValue") && Settings.GetSortOption("FleaValue").HasFlag(SortOptions.Enabled))
-        {
-            FleaMarketHelper.StartCachingPricesForItems(items);
-        }
+        // TODO: Flea market sorting not ready yet
+        // if (SortOrder.Contains("FleaValue") && Settings.GetSortOption("FleaValue").HasFlag(SortOptions.Enabled))
+        // {
+        //     FleaMarketHelper.StartCachingPricesForItems(items);
+        // }
 
         if (SortOrder.Contains("Value") && Settings.GetSortOption("Value").HasFlag(SortOptions.Enabled))
         {
@@ -108,8 +110,9 @@ public static class SortingStrategy
             "CellSize" => item => item.CalculateCellSize().Length,
             "Weight" => item => item.TotalWeight,
             "Value" => item => GetItemValue(item),
-            "FleaValue" => item => FleaMarketHelper.GetItemFleaPrice(item),
-            _ => throw new ArgumentException($"Invalid sort type '{sortType}'")
+            // TODO: Flea market sorting not ready yet
+            // "FleaValue" => item => FleaMarketHelper.GetItemFleaPrice(item),
+            _ => _ => 0
         };
     }
 

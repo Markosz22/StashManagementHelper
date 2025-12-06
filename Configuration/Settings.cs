@@ -28,7 +28,8 @@ public static class Settings
     public static ConfigEntry<SortOptions> ItemType { get; set; }
     public static ConfigEntry<SortOptions> Weight { get; set; }
     public static ConfigEntry<SortOptions> TraderValue { get; set; }
-    public static ConfigEntry<SortOptions> MarketValue { get; set; }
+    // TODO: Flea market sorting not ready yet
+    // public static ConfigEntry<SortOptions> MarketValue { get; set; }
 
     public static void BackupSortOptions()
     {
@@ -39,7 +40,7 @@ public static class Settings
             { "ItemType", ItemType.Value },
             { "Weight", Weight.Value },
             { "Value", TraderValue.Value },
-            { "FleaValue", MarketValue.Value }
+            // TODO { "FleaValue", MarketValue.Value }
         };
     }
 
@@ -55,7 +56,7 @@ public static class Settings
         ItemType.Value = _backup["ItemType"];
         Weight.Value = _backup["Weight"];
         TraderValue.Value = _backup["Value"];
-        MarketValue.Value = _backup["FleaValue"];
+        // TODO MarketValue.Value = _backup["FleaValue"];
         _backup = null;
     }
 
@@ -99,8 +100,9 @@ public static class Settings
         Weight = config.Bind(SortingStrategySection, "Sort by item weight", SortOptions.None,
             new ConfigDescription("Sort by item weight", null, new ConfigurationManagerAttributes { Order = 47 }));
 
-        MarketValue = config.Bind(SortingStrategySection, "Sort by item flea market value", SortOptions.None,
-            new ConfigDescription("Sort by market value", null, new ConfigurationManagerAttributes { Order = 46 }));
+        // TODO: Flea market sorting not ready yet
+        // MarketValue = config.Bind(SortingStrategySection, "Sort by item flea market value", SortOptions.None,
+        //     new ConfigDescription("Sort by market value", null, new ConfigurationManagerAttributes { Order = 46 }));
 
         TraderValue = config.Bind(SortingStrategySection, "Sort by item trader value", SortOptions.None,
             new ConfigDescription("Sort by trader value", null, new ConfigurationManagerAttributes { Order = 45 }));
@@ -108,17 +110,16 @@ public static class Settings
 
     public static SortOptions GetSortOption(string typeName)
     {
-        var option = typeName switch
+        return typeName switch
         {
             "ContainerSize" => ContainerSize.Value,
             "CellSize" => CellSize.Value,
             "ItemType" => ItemType.Value,
             "Weight" => Weight.Value,
             "Value" => TraderValue.Value,
-            "FleaValue" => MarketValue.Value,
-            _ => throw new System.ArgumentException("Invalid sort type")
-        };
+            // TODO: "FleaValue" => MarketValue.Value,
 
-        return option;
+            _ => SortOptions.None
+        };
     }
 }

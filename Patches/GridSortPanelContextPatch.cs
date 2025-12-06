@@ -197,7 +197,7 @@ namespace StashManagementHelper.Patches
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            //CreateMenuButton("Sort by Market Value", () => { SwapFlags("FleaValue"); DestroyCustomMenu(); }); //TODO
+            //CreateMenuButton("Sort by Market Value", () => { SwapFlags("FleaValue"); DestroyCustomMenu(); }); // TODO: Flea market sorting not ready yet
             CreateMenuButton("Sort by Trader Value", () => { SwapFlags("Value"); DestroyCustomMenu(); });
             CreateMenuButton("Sort by Item Weight", () => { SwapFlags("Weight"); DestroyCustomMenu(); });
 
@@ -384,7 +384,7 @@ namespace StashManagementHelper.Patches
             Settings.ItemType.Value = SortOptions.None;
             Settings.Weight.Value = (mode == "Weight") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;
             Settings.TraderValue.Value = (mode == "Value") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;
-            Settings.MarketValue.Value = (mode == "FleaValue") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;
+            //Settings.MarketValue.Value = (mode == "FleaValue") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;      // TODO: Flea market sorting not ready yet
 
             // Invoke the existing sort button
             _sortBtn.onClick.Invoke();
