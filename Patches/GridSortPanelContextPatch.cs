@@ -1,10 +1,10 @@
+using System;
+using System.Linq;
+using System.Reflection;
 using HarmonyLib;
 using SPT.Reflection.Patching;
 using StashManagementHelper.Configuration;
 using StashManagementHelper.SortingStrategy;
-using System;
-using System.Linq;
-using System.Reflection;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;

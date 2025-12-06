@@ -1,12 +1,12 @@
-﻿using EFT.InventoryLogic;
-using Newtonsoft.Json;
-using StashManagementHelper.Configuration;
-using StashManagementHelper.Helpers;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using EFT.InventoryLogic;
+using Newtonsoft.Json;
+using StashManagementHelper.Configuration;
+using StashManagementHelper.Helpers;
 
 namespace StashManagementHelper.SortingStrategy;
 
@@ -72,6 +72,11 @@ public static class SortingStrategy
             FleaMarketHelper.StartCachingPricesForItems(items);
         }
 
+        if (SortOrder.Contains("Value") && Settings.GetSortOption("Value").HasFlag(SortOptions.Enabled))
+        {
+            TraderExtensions.EnsureSupplyDataUpdated();
+        }
+
         var sortFunctions = SortOrder
             .Select(type => (
                 GetSortFunction(type),
@@ -134,23 +139,16 @@ public static class SortingStrategy
     {
         var best = 0d;
 
-        // Ensure supply data for all traders
-        foreach (var trader in TraderExtensions.Session.Traders.Where(t => !t.Settings.AvailableInRaid))
-        {
-            trader.UpdateSupplyData();
-        }
-
         // Calculate best price in roubles
-        foreach (var trader in TraderExtensions.Session.Traders.Where(t => !t.Settings.AvailableInRaid))
+        foreach (var trader in TraderExtensions.Traders)
         {
             var price = trader.GetUserItemPrice(item);
+            if (!price.HasValue)
+                continue;
 
-            if (!price.HasValue) continue;
             var pd = price.Value;
             var supply = trader.GetSupplyData();
-
-            if (supply == null || !supply.CurrencyCourses.TryGetValue(pd.CurrencyId.Value, out var course))
-                course = 1.0;
+            var course = supply?.CurrencyCourses.TryGetValue(pd.CurrencyId.Value, out var c) == true ? c : 1.0;
 
             var val = pd.Amount * course;
             if (val > best)
