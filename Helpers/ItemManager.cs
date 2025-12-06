@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using BepInEx.Logging;
 using EFT.InventoryLogic;
+using StashManagementHelper.Configuration;
 
 namespace StashManagementHelper.Helpers;
 
@@ -31,6 +32,16 @@ public static class ItemManager
                 foreach (var item in grid.Items)
                 {
                     if (!InteractionsHandlerClass.CanFold(item, out var foldable) || foldable?.Folded == true) continue;
+
+                    // Skip folding items that contain other items (Foldables mod compatibility)
+                    if (FoldablesCompatibility.IsFoldablesInstalled
+                        && Settings.FoldItemsWithContents != null
+                        && !Settings.FoldItemsWithContents.Value
+                        && HasContents(item))
+                    {
+                        // Logger.LogDebug($"Skipping fold for {item.Name.Localized()} - contains items");
+                        continue;
+                    }
 
                     Logger.LogDebug($"Folding {item.Name.Localized()}");
                     await inventoryController.TryRunNetworkTransaction(InteractionsHandlerClass.Fold(foldable, true, simulate));
@@ -140,4 +151,19 @@ public static class ItemManager
     /// </summary>
     /// <param name="item"></param>
     public static bool IsItemInTrader(Item item) => item?.Owner?.OwnerType == EOwnerType.Trader;
+
+    /// <summary>
+    /// Checks if a container item has any items inside it.
+    /// Used for Foldables mod compatibility to avoid folding items with contents.
+    /// </summary>
+    /// <param name="item">The item to check</param>
+    /// <returns>True if the item is a container with items inside, false otherwise</returns>
+    private static bool HasContents(Item item)
+    {
+        if (item is not CompoundItem compoundItem)
+            return false;
+
+        // Check if any grid contains items
+        return compoundItem.Grids?.Any(grid => grid.Items.Any()) == true;
+    }
 }
