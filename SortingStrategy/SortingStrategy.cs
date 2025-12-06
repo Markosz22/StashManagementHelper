@@ -1,12 +1,12 @@
-﻿using EFT.InventoryLogic;
-using Newtonsoft.Json;
-using StashManagementHelper.Configuration;
-using StashManagementHelper.Helpers;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using EFT.InventoryLogic;
+using Newtonsoft.Json;
+using StashManagementHelper.Configuration;
+using StashManagementHelper.Helpers;
 
 namespace StashManagementHelper.SortingStrategy;
 
@@ -16,7 +16,8 @@ public static class SortingStrategy
     private static DateTime lastConfigFileWriteTime = DateTime.MinValue;
     private static readonly string configPath;
 
-    private static List<string> SortOrder { get; set; } = new List<string> { "ContainerSize", "CellSize", "ItemType", "Weight", "Value", "FleaValue" };
+    // TODO: "FleaValue" removed - not ready for release
+    private static List<string> SortOrder { get; set; } = new List<string> { "ContainerSize", "CellSize", "ItemType", "Weight", "Value" };
 
     private static List<ItemTypes.ItemType> ItemTypeOrder { get; set; } =
     [
@@ -67,9 +68,15 @@ public static class SortingStrategy
     {
         LoadSortOrder();
 
-        if (SortOrder.Contains("FleaValue") && Settings.GetSortOption("FleaValue").HasFlag(SortOptions.Enabled))
+        // TODO: Flea market sorting not ready yet
+        // if (SortOrder.Contains("FleaValue") && Settings.GetSortOption("FleaValue").HasFlag(SortOptions.Enabled))
+        // {
+        //     FleaMarketHelper.StartCachingPricesForItems(items);
+        // }
+
+        if (SortOrder.Contains("Value") && Settings.GetSortOption("Value").HasFlag(SortOptions.Enabled))
         {
-            FleaMarketHelper.StartCachingPricesForItems(items);
+            TraderExtensions.EnsureSupplyDataUpdated();
         }
 
         var sortFunctions = SortOrder
@@ -103,8 +110,9 @@ public static class SortingStrategy
             "CellSize" => item => item.CalculateCellSize().Length,
             "Weight" => item => item.TotalWeight,
             "Value" => item => GetItemValue(item),
-            "FleaValue" => item => FleaMarketHelper.GetItemFleaPrice(item),
-            _ => throw new ArgumentException($"Invalid sort type '{sortType}'")
+            // TODO: Flea market sorting not ready yet
+            // "FleaValue" => item => FleaMarketHelper.GetItemFleaPrice(item),
+            _ => _ => 0
         };
     }
 
@@ -134,23 +142,16 @@ public static class SortingStrategy
     {
         var best = 0d;
 
-        // Ensure supply data for all traders
-        foreach (var trader in TraderExtensions.Session.Traders.Where(t => !t.Settings.AvailableInRaid))
-        {
-            trader.UpdateSupplyData();
-        }
-
         // Calculate best price in roubles
-        foreach (var trader in TraderExtensions.Session.Traders.Where(t => !t.Settings.AvailableInRaid))
+        foreach (var trader in TraderExtensions.Traders)
         {
             var price = trader.GetUserItemPrice(item);
+            if (!price.HasValue)
+                continue;
 
-            if (!price.HasValue) continue;
             var pd = price.Value;
             var supply = trader.GetSupplyData();
-
-            if (supply == null || !supply.CurrencyCourses.TryGetValue(pd.CurrencyId.Value, out var course))
-                course = 1.0;
+            var course = supply?.CurrencyCourses.TryGetValue(pd.CurrencyId.Value, out var c) == true ? c : 1.0;
 
             var val = pd.Amount * course;
             if (val > best)

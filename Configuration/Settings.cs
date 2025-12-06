@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using BepInEx.Configuration;
+using StashManagementHelper.Helpers;
 using StashManagementHelper.SortingStrategy;
 
 namespace StashManagementHelper.Configuration;
@@ -16,6 +17,7 @@ public static class Settings
 
     public static ConfigEntry<SortEnum> SortingStrategy { get; set; }
     public static ConfigEntry<bool> FoldItems { get; set; }
+    public static ConfigEntry<bool> FoldItemsWithContents { get; set; }
     public static ConfigEntry<bool> MergeItems { get; set; }
     public static ConfigEntry<bool> RotateItems { get; set; }
     public static ConfigEntry<bool> FlipSortDirection { get; set; }
@@ -28,7 +30,8 @@ public static class Settings
     public static ConfigEntry<SortOptions> ItemType { get; set; }
     public static ConfigEntry<SortOptions> Weight { get; set; }
     public static ConfigEntry<SortOptions> TraderValue { get; set; }
-    public static ConfigEntry<SortOptions> MarketValue { get; set; }
+    // TODO: Flea market sorting not ready yet
+    // public static ConfigEntry<SortOptions> MarketValue { get; set; }
 
     public static void BackupSortOptions()
     {
@@ -39,7 +42,7 @@ public static class Settings
             { "ItemType", ItemType.Value },
             { "Weight", Weight.Value },
             { "Value", TraderValue.Value },
-            { "FleaValue", MarketValue.Value }
+            // TODO { "FleaValue", MarketValue.Value }
         };
     }
 
@@ -55,7 +58,7 @@ public static class Settings
         ItemType.Value = _backup["ItemType"];
         Weight.Value = _backup["Weight"];
         TraderValue.Value = _backup["Value"];
-        MarketValue.Value = _backup["FleaValue"];
+        // TODO MarketValue.Value = _backup["FleaValue"];
         _backup = null;
     }
 
@@ -74,17 +77,28 @@ public static class Settings
         FoldItems = config.Bind(SortingSection, "Fold items", true,
             new ConfigDescription("Fold items to save space.", null, new ConfigurationManagerAttributes { Order = 97 }));
 
+        // Only show if Foldables mod is detected
+        if (FoldablesCompatibility.IsFoldablesInstalled)
+        {
+            FoldItemsWithContents = config.Bind(SortingSection, "Fold containers with items inside", false,
+                new ConfigDescription(
+                    "When enabled, containers (backpacks, rigs) that have items inside them will be folded. " +
+                    "Disabled by default. (Foldables mod compatibility)",
+                    null,
+                    new ConfigurationManagerAttributes { Order = 96 }));
+        }
+
         MergeItems = config.Bind(SortingSection, "Merge items", true,
-            new ConfigDescription("Merge stacking items to save space.", null, new ConfigurationManagerAttributes { Order = 96 }));
+            new ConfigDescription("Merge stacking items to save space.", null, new ConfigurationManagerAttributes { Order = 95 }));
 
         RotateItems = config.Bind(SortingSection, "Rotate items", true,
-            new ConfigDescription("Rotate items for best fit.", null, new ConfigurationManagerAttributes { Order = 95 }));
+            new ConfigDescription("Rotate items for best fit.", null, new ConfigurationManagerAttributes { Order = 94 }));
 
         FlipSortDirection = config.Bind(SortingSection, "Flip sort direction", false,
-            new ConfigDescription("Start sorting from bottom up.", null, new ConfigurationManagerAttributes { Order = 94 }));
+            new ConfigDescription("Start sorting from bottom up.", null, new ConfigurationManagerAttributes { Order = 93 }));
 
         SkipRows = config.Bind(SortingSection, "Skip rows", 0,
-            new ConfigDescription("Skips the first # rows in stash.", new AcceptableValueRange<int>(0, 10), new ConfigurationManagerAttributes { Order = 93 }));
+            new ConfigDescription("Skips the first # rows in stash.", new AcceptableValueRange<int>(0, 10), new ConfigurationManagerAttributes { Order = 92 }));
 
         // Sorting strategy
         ContainerSize = config.Bind(SortingStrategySection, "Sort by container size", SortOptions.Enabled | SortOptions.Descending,
@@ -99,8 +113,9 @@ public static class Settings
         Weight = config.Bind(SortingStrategySection, "Sort by item weight", SortOptions.None,
             new ConfigDescription("Sort by item weight", null, new ConfigurationManagerAttributes { Order = 47 }));
 
-        MarketValue = config.Bind(SortingStrategySection, "Sort by item flea market value", SortOptions.None,
-            new ConfigDescription("Sort by market value", null, new ConfigurationManagerAttributes { Order = 46 }));
+        // TODO: Flea market sorting not ready yet
+        // MarketValue = config.Bind(SortingStrategySection, "Sort by item flea market value", SortOptions.None,
+        //     new ConfigDescription("Sort by market value", null, new ConfigurationManagerAttributes { Order = 46 }));
 
         TraderValue = config.Bind(SortingStrategySection, "Sort by item trader value", SortOptions.None,
             new ConfigDescription("Sort by trader value", null, new ConfigurationManagerAttributes { Order = 45 }));
@@ -108,17 +123,16 @@ public static class Settings
 
     public static SortOptions GetSortOption(string typeName)
     {
-        var option = typeName switch
+        return typeName switch
         {
             "ContainerSize" => ContainerSize.Value,
             "CellSize" => CellSize.Value,
             "ItemType" => ItemType.Value,
             "Weight" => Weight.Value,
             "Value" => TraderValue.Value,
-            "FleaValue" => MarketValue.Value,
-            _ => throw new System.ArgumentException("Invalid sort type")
-        };
+            // TODO: "FleaValue" => MarketValue.Value,
 
-        return option;
+            _ => SortOptions.None
+        };
     }
 }

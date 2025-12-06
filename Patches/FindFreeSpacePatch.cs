@@ -1,12 +1,12 @@
-﻿using EFT.InventoryLogic;
+﻿using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using EFT.InventoryLogic;
 using HarmonyLib;
 using SPT.Reflection.Patching;
 using StashManagementHelper.Configuration;
 using StashManagementHelper.Helpers;
-using System;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Runtime.CompilerServices;
 
 namespace StashManagementHelper.Patches;
 

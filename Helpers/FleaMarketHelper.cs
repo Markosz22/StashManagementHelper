@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -8,73 +9,59 @@ namespace StashManagementHelper.Helpers;
 
 public static class FleaMarketHelper
 {
-    private static readonly Dictionary<string, double> PriceCache = [];
-    private static bool _isFetching;
+    private static readonly ConcurrentDictionary<string, double> PriceCache = new();
+    private static volatile bool _isFetching;
 
+    private const double FailedMarker = -1d;
 
+    /// <summary>
+    /// Returns cached flea price. Returns 0 if not yet cached or failed.
+    /// </summary>
     public static double GetItemFleaPrice(Item item)
     {
-        PriceCache.TryGetValue(item.TemplateId, out var cachedPrice);
-        if (cachedPrice == 0)
+        if (PriceCache.TryGetValue(item.TemplateId, out var price) && price >= 0)
         {
-            var session = TraderExtensions.Session;
-            session.GetMarketPrices(item.TemplateId, result =>
-            {
-                if (result.Failed)
-                {
-                    return;
-                }
-                cachedPrice = result.Value.min;
-                PriceCache[item.TemplateId] = cachedPrice;
-            });
+            return price * item.StackObjectsCount;
         }
-
-        ItemManager.Logger.LogInfo($"Returning price for {item.LocalizedShortName()}: {cachedPrice}");
-
-        return cachedPrice * item.StackObjectsCount;
+        return 0;
     }
 
+    /// <summary>
+    /// Pre-caches prices for all items. Call once before sorting.
+    /// </summary>
     public static void StartCachingPricesForItems(IEnumerable<Item> items)
     {
-        if (_isFetching)
-        {
-            return;
-        }
+        if (_isFetching) return;
 
-        var itemsToFetch = items.Where(i => !PriceCache.ContainsKey(i.TemplateId)).Select(i => i.TemplateId).Distinct().ToList();
-        if (!itemsToFetch.Any())
-        {
-            return;
-        }
+        var templateIds = items
+            .Select(i => (string)i.TemplateId)
+            .Where(id => !PriceCache.ContainsKey(id))
+            .Distinct()
+            .ToList();
+
+        if (templateIds.Count == 0) return;
 
         _isFetching = true;
-        CachePricesForItems([.. itemsToFetch.Select(id => (string)id)]).ContinueWith(_ => _isFetching = false);
+        Task.Run(() => CachePricesAsync(templateIds)).ContinueWith(_ => _isFetching = false);
     }
 
-    private static async Task CachePricesForItems(List<string> itemsToFetch)
+    private static async Task CachePricesAsync(List<string> templateIds)
     {
-        var tasks = itemsToFetch.Select(FetchAndCachePrice).ToList();
+        var tasks = templateIds.Select(FetchPriceAsync);
         await Task.WhenAll(tasks);
     }
 
-    private static async Task FetchAndCachePrice(string templateId)
+    private static async Task FetchPriceAsync(string templateId)
     {
-        var marketPrices = await GetMarketPricesAsync(templateId);
-
-        if (marketPrices == null) return;
-
-        var price = marketPrices.min;
-        if (price > 0)
-        {
-            PriceCache[templateId] = price;
-        }
+        var prices = await GetMarketPricesAsync(templateId);
+        PriceCache[templateId] = prices?.min ?? FailedMarker;
     }
 
     private static Task<ItemMarketPrices> GetMarketPricesAsync(string templateId)
     {
         var tcs = new TaskCompletionSource<ItemMarketPrices>();
-
         var session = TraderExtensions.Session;
+
         if (session == null)
         {
             tcs.TrySetResult(null);
@@ -83,13 +70,7 @@ public static class FleaMarketHelper
 
         session.GetMarketPrices(templateId, result =>
         {
-            if (result.Failed)
-            {
-                ItemManager.Logger.LogError($"Failed to get market price for {templateId}: {result.Error}");
-                tcs.TrySetResult(null);
-                return;
-            }
-            tcs.TrySetResult(result.Value);
+            tcs.TrySetResult(result.Succeed ? result.Value : null);
         });
 
         return tcs.Task;
