@@ -98,7 +98,7 @@ public static class Settings
             new ConfigDescription("Start sorting from bottom up.", null, new ConfigurationManagerAttributes { Order = 93 }));
 
         SkipRows = config.Bind(SortingSection, "Skip rows", 0,
-            new ConfigDescription("Skips the first # rows in stash.", new AcceptableValueRange<int>(0, 10), new ConfigurationManagerAttributes { Order = 92 }));
+            new ConfigDescription("Skips the first # rows in stash.", new AcceptableValueRange<int>(0, 99), new ConfigurationManagerAttributes { Order = 92 }));
 
         // Sorting strategy
         ContainerSize = config.Bind(SortingStrategySection, "Sort by container size", SortOptions.Enabled | SortOptions.Descending,
