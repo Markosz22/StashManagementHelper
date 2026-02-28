@@ -11,19 +11,14 @@ namespace StashManagementHelper.Helpers;
 public static class TraderExtensions
 {
     private static readonly FieldInfo SupplyDataField = typeof(TraderClass).GetField("supplyData_0", BindingFlags.NonPublic | BindingFlags.Instance);
-    private static ISession _session;
-    private static List<TraderClass> _cachedTraders;
-    private static volatile bool _isUpdating;
-    private static DateTime _lastUpdate = DateTime.MinValue;
 
-    private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(1);
+    private static ISession _session;
+    private static DateTime _lastUpdate;
+    private static bool _isUpdating;
 
     public static ISession Session => _session ??= ClientAppUtils.GetMainApp().GetClientBackEndSession();
 
-    /// <summary>
-    /// Cached list of traders.
-    /// </summary>
-    public static List<TraderClass> Traders => _cachedTraders ??= Session?.Traders?.Where(t => !t.Settings.AvailableInRaid).ToList() ?? [];
+    public static List<TraderClass> Traders => Session?.Traders?.Where(t => !t.Settings.AvailableInRaid).ToList() ?? [];
 
     public static SupplyData GetSupplyData(this TraderClass trader)
     {
@@ -31,36 +26,44 @@ public static class TraderExtensions
     }
 
     /// <summary>
-    /// Ensures supply data is fetched for all traders.
+    /// Triggers async refresh of trader supply data if needed. Non-blocking.
     /// </summary>
     public static void EnsureSupplyDataUpdated()
     {
-        if (SupplyDataField == null || _isUpdating) return;
-        if (DateTime.UtcNow - _lastUpdate < CacheDuration) return;
-
-        var tradersNeedingData = Traders.Where(t => t.GetSupplyData() == null).ToList();
-        if (tradersNeedingData.Count == 0)
-        {
-            _lastUpdate = DateTime.UtcNow;
+        if (SupplyDataField == null || _isUpdating)
             return;
-        }
+
+        var traders = Traders;
+        if (traders.Count == 0)
+            return;
+
+        var timeSinceUpdate = (DateTime.UtcNow - _lastUpdate).TotalSeconds;
+        var hasAllData = traders.All(t => t.GetSupplyData() != null);
+
+        if (timeSinceUpdate < 30 && hasAllData)
+            return;
 
         _isUpdating = true;
-        Task.Run(() => UpdateAllAsync(tradersNeedingData))
-            .ContinueWith(_ =>
-            {
-                _isUpdating = false;
-                _lastUpdate = DateTime.UtcNow;
-            });
+        _lastUpdate = DateTime.UtcNow;
+        _ = RefreshAllTradersAsync(traders);
     }
 
-    private static async Task UpdateAllAsync(List<TraderClass> traders)
+    private static async Task RefreshAllTradersAsync(List<TraderClass> traders)
     {
-        var tasks = traders.Select(UpdateTraderAsync);
-        await Task.WhenAll(tasks);
+        try
+        {
+            for (var i = 0; i < traders.Count; i++)
+            {
+                await RefreshTraderAsync(traders[i]);
+            }
+        }
+        finally
+        {
+            _isUpdating = false;
+        }
     }
 
-    private static async Task UpdateTraderAsync(TraderClass trader)
+    private static async Task RefreshTraderAsync(TraderClass trader)
     {
         try
         {
@@ -72,7 +75,7 @@ public static class TraderExtensions
         }
         catch (Exception ex)
         {
-            ItemManager.Logger.LogError($"Failed to update supply data for {trader.Id}: {ex.Message}");
+            ItemManager.Logger.LogError($"Supply data update failed for {trader.Id}: {ex.Message}");
         }
     }
 }
