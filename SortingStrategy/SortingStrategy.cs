@@ -1,9 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using EFT;
 using EFT.InventoryLogic;
+using EFT.Trading;
 using Newtonsoft.Json;
 using StashManagementHelper.Configuration;
 using StashManagementHelper.Helpers;
@@ -16,8 +18,7 @@ public static class SortingStrategy
     private static DateTime lastConfigFileWriteTime = DateTime.MinValue;
     private static readonly string configPath;
 
-    // TODO: "FleaValue" removed - not ready for release
-    private static List<string> SortOrder { get; set; } = new List<string> { "ContainerSize", "CellSize", "ItemType", "Weight", "Value" };
+    private static List<string> SortOrder { get; set; } = ["ContainerSize", "CellSize", "ItemType", "Weight", "Value"];
 
     private static List<ItemTypes.ItemType> ItemTypeOrder { get; set; } =
     [
@@ -56,102 +57,186 @@ public static class SortingStrategy
         configPath = Path.Combine(Path.GetDirectoryName(dllPath) ?? string.Empty, "customSortConfig.json");
     }
 
-    public static List<Item> Sort(this IEnumerable<Item> items)
-        => Settings.SortingStrategy.Value switch
+    private readonly struct SortKey
+    {
+        public readonly float ContainerSize;
+        public readonly int ItemType;
+        public readonly int CellSize;
+        public readonly float Weight;
+        public readonly double Value;
+
+        public SortKey(float containerSize, int itemType, int cellSize, float weight, double value)
         {
-            SortEnum.Default => [.. items],
-            SortEnum.Custom => items.SortByCustomOrder(),
-            _ => [.. items]
-        };
+            ContainerSize = containerSize;
+            ItemType = itemType;
+            CellSize = cellSize;
+            Weight = weight;
+            Value = value;
+        }
+    }
+
+    public static List<Item> Sort(this IEnumerable<Item> items)
+        => Settings.SortingStrategy.Value == SortEnum.Custom
+            ? items.SortByCustomOrder()
+            : [.. items];
 
     private static List<Item> SortByCustomOrder(this IEnumerable<Item> items)
     {
         LoadSortOrder();
 
-        // TODO: Flea market sorting not ready yet
-        // if (SortOrder.Contains("FleaValue") && Settings.GetSortOption("FleaValue").HasFlag(SortOptions.Enabled))
-        // {
-        //     FleaMarketHelper.StartCachingPricesForItems(items);
-        // }
+        var source = items as IList<Item> ?? items.ToList();
+        if (source.Count <= 1)
+        {
+            return [.. source];
+        }
 
-        if (SortOrder.Contains("Value") && Settings.GetSortOption("Value").HasFlag(SortOptions.Enabled))
+        var criteria = new List<(string Type, bool Descending)>();
+        foreach (var type in SortOrder)
+        {
+            var option = Settings.GetSortOption(type);
+            if (!option.HasFlag(SortOptions.Enabled))
+            {
+                continue;
+            }
+
+            criteria.Add((type, option.HasFlag(SortOptions.Descending)));
+        }
+
+        if (criteria.Count == 0)
+        {
+            return [.. source];
+        }
+
+        var needValue = criteria.Exists(c => c.Type == "Value");
+        List<(Trader Trader, SupplyData Supply)> traders = null;
+        if (needValue)
         {
             TraderExtensions.EnsureSupplyDataUpdated();
+            traders = SnapshotTraders();
         }
 
-        var sortFunctions = SortOrder
-            .Select(type => (
-                GetSortFunction(type),
-                Settings.GetSortOption(type).HasFlag(SortOptions.Enabled),
-                Settings.GetSortOption(type).HasFlag(SortOptions.Descending)
-            ))
-            .Where(sf => sf.Item2)
-            .Reverse()
-            .ToList();
-
-        var orderedItems = items;
-
-        foreach (var (keySelector, _, descending) in sortFunctions)
+        var keyed = new (Item Item, SortKey Key)[source.Count];
+        for (var i = 0; i < source.Count; i++)
         {
-            orderedItems = descending
-                ? orderedItems.OrderByDescending(keySelector)
-                : orderedItems.OrderBy(keySelector);
+            var item = source[i];
+            keyed[i] = (item, CreateSortKey(item, traders));
         }
 
-        return [.. orderedItems];
+        IEnumerable<(Item Item, SortKey Key)> ordered = keyed;
+        for (var i = 0; i < criteria.Count; i++)
+        {
+            var (type, descending) = criteria[i];
+            ordered = ApplyCriterion(ordered, type, descending, isPrimary: i == 0);
+        }
+
+        return [.. ordered.Select(x => x.Item)];
     }
 
-    private static Func<Item, object> GetSortFunction(string sortType)
+    private static SortKey CreateSortKey(Item item, List<(Trader Trader, SupplyData Supply)> traders)
+    {
+        var size = item.CalculateCellSize();
+        return new SortKey(
+            GetContainerSize(item),
+            GetItemType(item),
+            size.X * size.Y,
+            item.TotalWeight,
+            traders != null ? GetItemValue(item, traders) : 0d);
+    }
+
+    private static IOrderedEnumerable<T> Apply<T, TKey>(
+        IEnumerable<T> source,
+        Func<T, TKey> selector,
+        bool descending,
+        bool isPrimary)
+        where TKey : IComparable<TKey>
+    {
+        if (isPrimary)
+        {
+            return descending ? source.OrderByDescending(selector) : source.OrderBy(selector);
+        }
+
+        var ordered = (IOrderedEnumerable<T>)source;
+        return descending ? ordered.ThenByDescending(selector) : ordered.ThenBy(selector);
+    }
+
+    private static IOrderedEnumerable<(Item Item, SortKey Key)> ApplyCriterion(
+        IEnumerable<(Item Item, SortKey Key)> source,
+        string sortType,
+        bool descending,
+        bool isPrimary)
     {
         return sortType switch
         {
-            "ContainerSize" => GetContainerSize,
-            "ItemType" => GetItemType,
-            "CellSize" => item => item.CalculateCellSize().Length,
-            "Weight" => item => item.TotalWeight,
-            "Value" => item => GetItemValue(item),
-            // TODO: Flea market sorting not ready yet
-            // "FleaValue" => item => FleaMarketHelper.GetItemFleaPrice(item),
-            _ => _ => 0
+            "ContainerSize" => Apply(source, x => x.Key.ContainerSize, descending, isPrimary),
+            "ItemType" => Apply(source, x => x.Key.ItemType, descending, isPrimary),
+            "CellSize" => Apply(source, x => x.Key.CellSize, descending, isPrimary),
+            "Weight" => Apply(source, x => x.Key.Weight, descending, isPrimary),
+            "Value" => Apply(source, x => x.Key.Value, descending, isPrimary),
+            _ => Apply(source, _ => 0, descending, isPrimary),
         };
     }
 
-    private static object GetItemType(Item item)
+    private static int GetItemType(Item item)
     {
-        var itemType = ItemTypes.ItemTypeMap.FirstOrDefault(entry => entry.Value(item)).Key;
-        var index = ItemTypeOrder.IndexOf(itemType);
-
-        if (index == -1)
+        foreach (var (type, matches) in ItemTypes.Matchers)
         {
-            ItemManager.Logger.LogInfo($"Unknown item type: {item.GetType().Name}");
-            return ItemTypeOrder.Count + 100;
+            if (!matches(item))
+            {
+                continue;
+            }
+
+            var index = ItemTypeOrder.IndexOf(type);
+            if (index < 0)
+            {
+                ItemManager.Logger.LogDebug($"Item type {type} is not in the sort order list: {item.GetType().Name}");
+                return ItemTypeOrder.Count + 100;
+            }
+
+            return index;
         }
 
-        return index;
+        ItemManager.Logger.LogDebug($"Unknown item type: {item.GetType().Name}");
+        return ItemTypeOrder.Count + 100;
     }
 
-    private static object GetContainerSize(Item item)
+    private static float GetContainerSize(Item item)
     {
-        return item.Attributes.FirstOrDefault(y => y.Id.Equals(EItemAttributeId.ContainerSize))?.Base.Invoke() ?? -1;
+        var attr = item.Attributes.FirstOrDefault(y => y.Id.Equals(EItemAttributeId.ContainerSize));
+        if (attr?.Base == null)
+        {
+            return -1f;
+        }
+
+        return attr.Base.Invoke();
+    }
+
+    private static List<(Trader Trader, SupplyData Supply)> SnapshotTraders()
+    {
+        var snapshot = new List<(Trader Trader, SupplyData Supply)>();
+        foreach (var trader in TraderExtensions.Traders)
+        {
+            snapshot.Add((trader, trader.GetSupplyData()));
+        }
+
+        return snapshot;
     }
 
     /// <summary>
-    /// Retrieves the highest sell-to-trader value (in roubles) for this item.
+    /// Highest sell-to-trader value in roubles.
     /// </summary>
-    private static double GetItemValue(Item item)
+    private static double GetItemValue(Item item, List<(Trader Trader, SupplyData Supply)> traders)
     {
         var best = 0d;
 
-        // Calculate best price in roubles
-        foreach (var trader in TraderExtensions.Traders)
+        foreach (var (trader, supply) in traders)
         {
             var price = trader.GetUserItemPrice(item);
             if (!price.HasValue)
                 continue;
 
             var pd = price.Value;
-            var supply = trader.GetSupplyData();
-            var course = supply?.CurrencyCourses.TryGetValue(pd.CurrencyId.Value, out var c) == true ? c : 1.0;
+            var currencyId = pd.CurrencyId.HasValue ? (string)pd.CurrencyId.Value : null;
+            var course = currencyId != null && supply?.CurrencyCourses.TryGetValue(currencyId, out var c) == true ? c : 1.0;
 
             var val = pd.Amount * course;
             if (val > best)
@@ -167,7 +252,7 @@ public static class SortingStrategy
             return;
         }
 
-        var mapItemTypes = ItemTypes.ItemTypeMap.Keys.ToList();
+        var mapItemTypes = ItemTypes.Matchers.Select(m => m.Type).ToList();
         var missingTypes = mapItemTypes.Except(ItemTypeOrder).ToList();
         var extraTypes = ItemTypeOrder.Except(mapItemTypes).ToList();
 

@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using BepInEx.Configuration;
 using StashManagementHelper.Helpers;
 using StashManagementHelper.SortingStrategy;
@@ -30,8 +30,6 @@ public static class Settings
     public static ConfigEntry<SortOptions> ItemType { get; set; }
     public static ConfigEntry<SortOptions> Weight { get; set; }
     public static ConfigEntry<SortOptions> TraderValue { get; set; }
-    // TODO: Flea market sorting not ready yet
-    // public static ConfigEntry<SortOptions> MarketValue { get; set; }
 
     public static void BackupSortOptions()
     {
@@ -42,7 +40,6 @@ public static class Settings
             { "ItemType", ItemType.Value },
             { "Weight", Weight.Value },
             { "Value", TraderValue.Value },
-            // TODO { "FleaValue", MarketValue.Value }
         };
     }
 
@@ -58,7 +55,6 @@ public static class Settings
         ItemType.Value = _backup["ItemType"];
         Weight.Value = _backup["Weight"];
         TraderValue.Value = _backup["Value"];
-        // TODO MarketValue.Value = _backup["FleaValue"];
         _backup = null;
     }
 
@@ -72,7 +68,11 @@ public static class Settings
             new ConfigDescription("Apply sorting strategy to trader window.", null, new ConfigurationManagerAttributes { Order = 99 }));
 
         SortOtherContainers = config.Bind(SortingSection, "Sort other containers", false,
-            new ConfigDescription("Apply sorting strategy to containers other than Stash.", null, new ConfigurationManagerAttributes { Order = 98 }));
+            new ConfigDescription(
+                "Also apply fold, merge, and custom order to containers outside the stash (equipped gear, inventory, etc.). " +
+                "Containers inside the stash are always sorted.",
+                null,
+                new ConfigurationManagerAttributes { Order = 98, DispName = "Sort containers outside stash" }));
 
         FoldItems = config.Bind(SortingSection, "Fold items", true,
             new ConfigDescription("Fold items to save space.", null, new ConfigurationManagerAttributes { Order = 97 }));
@@ -113,10 +113,6 @@ public static class Settings
         Weight = config.Bind(SortingStrategySection, "Sort by item weight", SortOptions.None,
             new ConfigDescription("Sort by item weight", null, new ConfigurationManagerAttributes { Order = 47 }));
 
-        // TODO: Flea market sorting not ready yet
-        // MarketValue = config.Bind(SortingStrategySection, "Sort by item flea market value", SortOptions.None,
-        //     new ConfigDescription("Sort by market value", null, new ConfigurationManagerAttributes { Order = 46 }));
-
         TraderValue = config.Bind(SortingStrategySection, "Sort by item trader value", SortOptions.None,
             new ConfigDescription("Sort by trader value", null, new ConfigurationManagerAttributes { Order = 45 }));
     }
@@ -130,8 +126,6 @@ public static class Settings
             "ItemType" => ItemType.Value,
             "Weight" => Weight.Value,
             "Value" => TraderValue.Value,
-            // TODO: "FleaValue" => MarketValue.Value,
-
             _ => SortOptions.None
         };
     }
