@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 using EFT.InventoryLogic;
 using HarmonyLib;
@@ -10,36 +10,36 @@ namespace StashManagementHelper.Patches;
 
 public class SortPatch : ModulePatch
 {
-    protected override MethodBase GetTargetMethod() => AccessTools.Method(typeof(InteractionsHandlerClass), "Sort");
+    protected override MethodBase GetTargetMethod() => AccessTools.Method(typeof(ItemManipulator), nameof(ItemManipulator.Sort));
 
     [PatchPrefix]
-    private static async void PatchPrefix(CompoundItem sortedItem, InventoryController controller, bool simulate)
+    private static void PatchPrefix(CompoundItem sortedItem, InventoryController controller, bool simulate)
     {
         try
         {
+            // Always apply inside the stash (including nested backpacks/rigs). The toggle only
+            // covers containers outside it — equipped gear, inventory, etc.
             if (!Settings.SortOtherContainers.Value && !ItemManager.IsItemInStash(sortedItem))
             {
-                ItemManager.Logger.LogDebug($"Skipping custom sorting in {sortedItem.Template._name} - not in hideout stash container");
+                ItemManager.Logger.LogDebug($"Skipping custom sorting in {sortedItem.Template._name} - not inside stash");
                 return;
             }
 
             Settings.Sorting = true;
 
-            // Merge separate stacks of the same item
             if (Settings.MergeItems.Value)
             {
-                await ItemManager.MergeItems(sortedItem, controller, simulate);
+                ItemManager.MergeItems(sortedItem, controller, simulate);
             }
 
-            // Fold weapons to take up less space
             if (Settings.FoldItems.Value)
             {
-                await ItemManager.FoldItemsAsync(sortedItem, controller, simulate);
+                ItemManager.FoldItems(sortedItem, controller, simulate);
             }
         }
         catch (Exception e)
         {
-            ItemManager.Logger.LogError(e.Message);
+            ItemManager.Logger.LogError(e.ToString());
         }
     }
 

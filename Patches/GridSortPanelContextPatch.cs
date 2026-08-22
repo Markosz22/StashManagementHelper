@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using EFT.UI.DragAndDrop;
 using HarmonyLib;
 using SPT.Reflection.Patching;
 using StashManagementHelper.Configuration;
@@ -25,6 +26,7 @@ namespace StashManagementHelper.Patches
         // Context menu instance
         private static GameObject _customMenu;
         private static Button _sortBtn;
+        private static GridSortPanel _sortPanel;
         private static GameObject _buttonTemplate;
         // Full-screen blocker to close menu on outside click
         private static GameObject _menuBlocker;
@@ -37,18 +39,10 @@ namespace StashManagementHelper.Patches
         /// <returns>The method to be patched.</returns>
         protected override MethodBase GetTargetMethod()
         {
-            // Patch the Show method of the stash sort panel (actual type contains DragAndDrop namespace)
-            var type = AccessTools.TypeByName("EFT.UI.DragAndDrop.GridSortPanel");
-            if (type == null)
-            {
-                Debug.LogError("[GridSortPanelContextPatch] Type EFT.UI.DragAndDrop.GridSortPanel not found. Patching aborted.");
-                return null;
-            }
-            var method = AccessTools.Method(type, "Show");
+            var method = AccessTools.Method(typeof(GridSortPanel), nameof(GridSortPanel.Show));
             if (method == null)
             {
-                Debug.LogError($"[GridSortPanelContextPatch] Show method not found on GridSortPanel ({type.FullName}). Patching aborted.");
-                return null;
+                Debug.LogError("[GridSortPanelContextPatch] Show method not found on GridSortPanel. Patching aborted.");
             }
             return method;
         }
@@ -57,17 +51,18 @@ namespace StashManagementHelper.Patches
         /// Harmony Postfix patch for the Show method of the GridSortPanel.
         /// Adds a right-click context menu to the sort button.
         /// </summary>
-        /// <param name="__instance">The instance of GridSortPanel.</param>
         [PatchPostfix]
-        private static void Postfix(object __instance)
+        private static void Postfix(GridSortPanel __instance)
         {
-            if (!(__instance is Component panel))
+            if (__instance == null)
             {
-                Debug.LogWarning("[GridSortPanelContextPatch] Instance is not a Component, cannot proceed with Postfix.");
+                Debug.LogWarning("[GridSortPanelContextPatch] Instance is null, cannot proceed with Postfix.");
                 return;
             }
 
-            var currentSortBtn = panel.GetComponentsInChildren<Button>(true)
+            _sortPanel = __instance;
+
+            var currentSortBtn = __instance.GetComponentsInChildren<Button>(true)
                 .FirstOrDefault(b => b.name.IndexOf(SortButtonName, StringComparison.OrdinalIgnoreCase) >= 0);
 
             if (currentSortBtn == null)
@@ -75,6 +70,8 @@ namespace StashManagementHelper.Patches
                 Debug.LogWarning($"[GridSortPanelContextPatch] Could not find sort button with '{SortButtonName}' in its name in panel children. Postfix aborted.");
                 return;
             }
+
+            _sortBtn = currentSortBtn;
 
             if (currentSortBtn.GetComponent<SMHSortButtonMarker>() != null)
             {
@@ -197,7 +194,6 @@ namespace StashManagementHelper.Patches
             fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
             fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            //CreateMenuButton("Sort by Market Value", () => { SwapFlags("FleaValue"); DestroyCustomMenu(); }); // TODO: Flea market sorting not ready yet
             CreateMenuButton("Sort by Trader Value", () => { SwapFlags("Value"); DestroyCustomMenu(); });
             CreateMenuButton("Sort by Item Weight", () => { SwapFlags("Weight"); DestroyCustomMenu(); });
 
@@ -378,16 +374,30 @@ namespace StashManagementHelper.Patches
         {
             Settings.BackupSortOptions();
 
-            // Disable all, enable only selected mode
-            Settings.ContainerSize.Value = SortOptions.None;
-            Settings.CellSize.Value = SortOptions.None;
-            Settings.ItemType.Value = SortOptions.None;
-            Settings.Weight.Value = (mode == "Weight") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;
-            Settings.TraderValue.Value = (mode == "Value") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;
-            //Settings.MarketValue.Value = (mode == "FleaValue") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;      // TODO: Flea market sorting not ready yet
+            try
+            {
+                Settings.ContainerSize.Value = SortOptions.None;
+                Settings.CellSize.Value = SortOptions.None;
+                Settings.ItemType.Value = SortOptions.None;
+                Settings.Weight.Value = (mode == "Weight") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;
+                Settings.TraderValue.Value = (mode == "Value") ? (SortOptions.Enabled | SortOptions.Descending) : SortOptions.None;
 
-            // Invoke the existing sort button
-            _sortBtn.onClick.Invoke();
+                // Call Sort() directly. Invoking the button runs ButtonClickHandler, which in 4.1
+                // opens a confirmation dialog — cancelling that dialog never restored these flags.
+                if (_sortPanel == null)
+                {
+                    Debug.LogWarning("[GridSortPanelContextPatch] Sort panel reference is null; restoring sort options.");
+                    Settings.RestoreSortOptions();
+                    return;
+                }
+
+                _sortPanel.Sort();
+            }
+            catch (Exception ex)
+            {
+                Settings.RestoreSortOptions();
+                Debug.LogError("[GridSortPanelContextPatch] Failed to run context-menu sort: " + ex);
+            }
         }
 
         private class SMHSortButtonMarker : MonoBehaviour { }

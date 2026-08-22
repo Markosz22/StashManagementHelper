@@ -1,6 +1,6 @@
 # StashManagementHelper
 
-A Single Player Tarkov (SPT) plugin that enhances stash management with configurable sorting capabilities.
+A Single Player Tushonka (SPT) plugin that enhances stash management with configurable sorting capabilities.
 
 ## Features
 
